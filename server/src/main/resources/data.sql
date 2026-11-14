@@ -1,0 +1,5 @@
+INSERT INTO asset (id, tag, type, brand, model, serial, assigned_to, status, purchase_date, price) VALUES (default, 'PC-001', 'Laptop', 'Dell', 'Latitude 7440', 'DL7440-A1', 'Sara Ali', 'In Use', '2025-02-10', 4200);
+INSERT INTO asset (id, tag, type, brand, model, serial, assigned_to, status, purchase_date, price) VALUES (default, 'PC-002', 'Desktop', 'HP', 'EliteDesk 800', 'HP800-B7', '', 'Available', '2024-09-01', 3100);
+INSERT INTO asset (id, tag, type, brand, model, serial, assigned_to, status, purchase_date, price) VALUES (default, 'PC-003', 'Laptop', 'Lenovo', 'ThinkPad T14', 'LNT14-C3', 'Omar Khalid', 'In Repair', '2023-11-20', 3900);
+INSERT INTO asset (id, tag, type, brand, model, serial, assigned_to, status, purchase_date, price) VALUES (default, 'SRV-001', 'Server', 'Dell', 'PowerEdge R650', 'DPE650-Z9', 'IT Dept', 'In Use', '2022-05-15', 28500);
+INSERT INTO asset (id, tag, type, brand, model, serial, assigned_to, status, purchase_date, price) VALUES (default, 'TAB-001', 'Tablet', 'Apple', 'iPad Air', 'AIPA-Q2', '', 'Retired', '2020-03-03', 2600);

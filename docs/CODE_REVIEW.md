@@ -33,7 +33,7 @@ Reviewed: all files in `src/`. Tool: Claude (AI assistant).
 | `field()` helper inside the form avoids repeating label/input markup. | ✅ Good |
 
 ## Tests
-`npm test` → 13 tests passing (reducer: add/update/remove/immutability/unknown action; search: text, status, empty; UI: menu navigation, add, duplicate-tag rejection, edit, search + delete).
+`npm test` → 15 tests passing (reducer: add/update/remove/immutability/set/unknown action; search: text, status, empty; UI: menu navigation, list, add, duplicate-tag rejection, edit, delete).
 
 ## UI / UX review (ui-ux-pro-max checklist)
 | Check | Status |
@@ -47,3 +47,33 @@ Reviewed: all files in `src/`. Tool: Claude (AI assistant).
 | Empty state with "Clear filters" action | ✅ |
 | `prefers-reduced-motion` disables transitions | ✅ |
 | Undo after delete (currently a confirm dialog only) | ℹ️ Optional |
+
+---
+
+## Part 2 — back-end review (`server/`)
+
+### Security
+| Finding | Status |
+|---|---|
+| Every request body is validated server-side (`@NotBlank`, `@NotNull`, `@PositiveOrZero`); invalid payloads return `400`. | ✅ OK |
+| `POST`/`PUT` reject a client-supplied `id`, so clients cannot overwrite arbitrary rows. | ✅ OK |
+| Spring Data JDBC uses parameterised statements → no SQL injection. | ✅ OK |
+| No secrets in the repo; H2 is in-memory and local only. | ✅ OK |
+| Dev uses a Vite proxy (same origin), so no permissive CORS is opened. | ✅ OK |
+
+### Performance
+| Finding | Status |
+|---|---|
+| `GET /api/v1/assets` is paginated (`PagingAndSortingRepository`), so large tables are not loaded at once. | ✅ OK |
+| Lookups/updates/deletes are by primary key. | ✅ OK |
+| H2 resets on restart; swap `schema.sql`/`data.sql` for a persistent DB if needed. | ℹ️ By design |
+
+### Code quality
+| Finding | Status |
+|---|---|
+| Clear Controller → Service → Repository layering (mirrors lab14). | ✅ Good |
+| `Asset` is an immutable `record`; updates build a new record with the path id. | ✅ Good |
+| `ObjectNotFoundException` maps to `404` in the controller. | ✅ Good |
+
+### Tests
+`./mvnw test` → 11 tests passing: service and controller tested with JUnit + Mockito (`@Mock`/`@InjectMocks`, one test per method), and a Spring context-load test.

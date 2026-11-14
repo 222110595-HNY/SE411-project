@@ -47,5 +47,76 @@ src/
 | `/assets/:id/edit` | Edit form |
 | `/about` | Team |
 
-## Part 2 migration
-Replace the reducer's in-memory array with fetch calls to the backend; pages keep using `useAssets()` unchanged.
+---
+
+# Part 2 — Spring backend
+
+The backend lives in `server/` and follows the same layering as the SE411 `lab14` solution (Controller → Service → Repository, a `record` model with `@Id` and Bean Validation, an `ObjectNotFoundException`, and `ResponseEntity` return types).
+
+## Backend tech stack
+| Layer | Choice | Why |
+|---|---|---|
+| Language | Java 21 | lab14 baseline |
+| Framework | Spring Boot 4.1.2 (Spring Web MVC) | REST controllers |
+| Persistence | Spring Data JDBC | `CrudRepository` + `PagingAndSortingRepository` |
+| Database | H2 (in-memory) via `schema.sql` + `data.sql` | Resets each run, zero setup |
+| Validation | Jakarta Bean Validation | `@NotBlank`, `@NotNull`, `@PositiveOrZero` on the model |
+| Build | Maven (wrapper `mvnw` included) | Same as lab14 |
+| Tests | JUnit 5 + Mockito, `@WebMvcTest` + MockMvc | Unit-test every layer |
+
+## Backend structure
+```
+server/
+  pom.xml
+  src/main/java/edu/psu/se411/assetmanager/
+    AssetManagerServerApplication.java   Spring Boot entry point
+    controller/AssetController.java      REST endpoints, @RequestMapping("/api/v1/assets")
+    service/AssetService.java            business logic, throws ObjectNotFoundException
+    repository/AssetRepository.java      Spring Data JDBC repository (CRUD + paging)
+    model/Asset.java                     record with @Id and validation annotations
+    exception/ObjectNotFoundException.java
+  src/main/resources/
+    application.properties               server.port=3000
+    schema.sql                           asset table
+    data.sql                             5 seed rows (match the front-end seed)
+  src/test/java/edu/psu/se411/assetmanager/
+    AssetManagerServerApplicationTests.java   context loads
+    service/AssetServiceTest.java             Mockito unit tests (mocked repository)
+    controller/AssetControllerTest.java       @WebMvcTest + MockMvc (mocked service)
+```
+
+## Backend data model (`asset` table)
+| Field | Java type | Column | Rules |
+|---|---|---|---|
+| id | Long | id (identity) | auto-generated |
+| tag | String | tag | `@NotBlank` |
+| type | String | type | `@NotBlank` |
+| brand | String | brand | `@NotBlank` |
+| model | String | model | `@NotBlank` |
+| serial | String | serial | `@NotBlank` |
+| assignedTo | String | assigned_to | optional |
+| status | String | status | `@NotBlank` |
+| purchaseDate | LocalDate | purchase_date | `@NotNull` |
+| price | Double | price | `@NotNull`, `@PositiveOrZero` |
+
+## REST API routes
+(The route table the presentation asks for, in the lab14 style.)
+
+| Method | Path | Request body | Success | Errors | Description |
+|---|---|---|---|---|---|
+| GET | `/api/v1/assets?page=&size=&sort=` | — | `200 OK` — paginated list (`content` + `page`) | — | List assets with pagination |
+| GET | `/api/v1/assets/{id}` | — | `200 OK` — the asset | `404` not found | Search an asset by id |
+| POST | `/api/v1/assets` | Asset JSON (no `id`) | `201 Created` + `Location` header | `400` invalid body or `id` present | Add an asset |
+| PUT | `/api/v1/assets/{id}` | Asset JSON (no `id`) | `204 No Content` | `400`, `404` not found | Update an asset |
+| DELETE | `/api/v1/assets/{id}` | — | `204 No Content` | `404` not found | Delete an asset |
+
+## How the two parts connect
+```
+Browser                 Vite dev server (:5173)              Spring Boot (:3000)
+  React app  ──fetch /api/v1/assets──▶  proxy /api  ──────▶  AssetController
+             ◀──────── JSON ──────────            ◀────────  AssetService ─▶ AssetRepository ─▶ H2
+```
+- `src/api.js` wraps `fetch` for list/get/create/update/delete.
+- `AssetProvider` loads assets from the API on mount and re-fetches after every create/update/delete.
+- `vite.config.js` proxies `/api` to `http://localhost:3000`, so the browser calls one origin (no CORS needed in dev); set `VITE_API_URL` to point elsewhere.
+- The pure `assetReducer` / `searchAssets` functions stay in the front-end for client-side search, filtering and unit tests.

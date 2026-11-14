@@ -1,9 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
 import { AssetProvider, assetReducer, searchAssets, seedAssets } from './AssetContext'
+import * as api from './api'
+
+vi.mock('./api')
 
 const renderApp = (path = '/') => render(
   <MemoryRouter initialEntries={[path]}>
@@ -28,6 +31,9 @@ describe('assetReducer', () => {
   it('removes by id', () => {
     expect(assetReducer(seedAssets, { type: 'remove', id: 1 }).some(a => a.id === 1)).toBe(false)
   })
+  it('replaces the list on set', () => {
+    expect(assetReducer(seedAssets, { type: 'set', assets: [] })).toEqual([])
+  })
   it('throws on unknown action', () => {
     expect(() => assetReducer([], { type: 'nope' })).toThrow()
   })
@@ -46,11 +52,37 @@ describe('searchAssets', () => {
   })
 })
 
-describe('UI', () => {
+describe('UI (integrated with the backend API)', () => {
+  let data
+  beforeEach(() => {
+    data = seedAssets.map(a => ({ ...a }))
+    api.listAssets.mockImplementation(async () => data.map(a => ({ ...a })))
+    api.getAssetsPage.mockImplementation(async page => ({
+      content: data.slice(page * 3, page * 3 + 3),
+      page: { totalPages: Math.ceil(data.length / 3) },
+    }))
+    api.createAsset.mockImplementation(async asset => {
+      const id = Math.max(0, ...data.map(a => a.id)) + 1
+      data.push({ ...asset, id })
+    })
+    api.updateAsset.mockImplementation(async (id, asset) => {
+      data = data.map(a => (a.id === id ? { ...asset, id } : a))
+    })
+    api.deleteAsset.mockImplementation(async id => {
+      data = data.filter(a => a.id !== id)
+    })
+  })
+
   it('navigates with the menu to About and shows the team', async () => {
     renderApp()
     await userEvent.click(screen.getByRole('link', { name: 'About' }))
-    expect(screen.getByRole('heading', { name: 'Team' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Team' })).toBeInTheDocument()
+  })
+
+  it('loads and lists assets from the API', async () => {
+    renderApp('/assets')
+    expect(await screen.findByText('PC-001')).toBeInTheDocument()
+    expect(api.listAssets).toHaveBeenCalled()
   })
 
   it('adds an asset through the form', async () => {
@@ -63,12 +95,16 @@ describe('UI', () => {
     await u.type(screen.getByLabelText(/Purchase date/), '2026-01-01')
     await u.type(screen.getByLabelText(/Price/), '3000')
     await u.click(screen.getByRole('button', { name: 'Add asset' }))
-    expect(screen.getByText('PC-099')).toBeInTheDocument()
+    await u.click(await screen.findByRole('button', { name: 'Next' }))
+    expect(await screen.findByText('PC-099')).toBeInTheDocument()
+    expect(api.createAsset).toHaveBeenCalled()
   })
 
   it('rejects a duplicate asset tag', async () => {
-    renderApp('/assets/new')
+    renderApp('/assets')
     const u = userEvent.setup()
+    await screen.findByText('PC-001')
+    await u.click(screen.getByRole('link', { name: 'Add asset' }))
     await u.type(screen.getByLabelText(/Asset tag/), 'pc-001')
     await u.type(screen.getByLabelText(/Brand/), 'X')
     await u.type(screen.getByLabelText(/Model/), 'X')
@@ -76,27 +112,29 @@ describe('UI', () => {
     await u.type(screen.getByLabelText(/Purchase date/), '2026-01-01')
     await u.type(screen.getByLabelText(/Price/), '1')
     await u.click(screen.getByRole('button', { name: 'Add asset' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('already exists')
+    expect(await screen.findByRole('alert')).toHaveTextContent('already exists')
+    expect(api.createAsset).not.toHaveBeenCalled()
   })
 
   it('edits an asset', async () => {
     renderApp('/assets/2/edit')
     const u = userEvent.setup()
-    const brand = screen.getByLabelText(/Brand/)
+    const brand = await screen.findByLabelText(/Brand/)
+    await waitFor(() => expect(brand).toHaveValue('HP'))
     await u.clear(brand)
     await u.type(brand, 'Compaq')
     await u.click(screen.getByRole('button', { name: 'Save changes' }))
-    expect(screen.getByText(/Compaq/)).toBeInTheDocument()
+    expect(await screen.findByText(/Compaq/)).toBeInTheDocument()
+    expect(api.updateAsset).toHaveBeenCalled()
   })
 
-  it('searches and deletes an asset', async () => {
+  it('deletes an asset', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderApp('/assets')
     const u = userEvent.setup()
-    await u.type(screen.getByLabelText('Search'), 'PC-002')
-    const row = screen.getByText('PC-002').closest('tr')
+    const row = (await screen.findByText('PC-002')).closest('tr')
     await u.click(within(row).getByRole('button', { name: 'Delete' }))
-    expect(screen.queryByText('PC-002')).not.toBeInTheDocument()
-    expect(screen.getByText('No assets found.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('PC-002')).not.toBeInTheDocument())
+    expect(api.deleteAsset).toHaveBeenCalledWith(2)
   })
 })

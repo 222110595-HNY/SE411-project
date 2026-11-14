@@ -1,4 +1,5 @@
-import { createContext, useContext, useReducer } from 'react'
+import { createContext, useCallback, useContext, useEffect, useReducer, useState } from 'react'
+import * as api from './api'
 
 export const TYPES = ['Laptop', 'Desktop', 'Server', 'Tablet']
 export const STATUSES = ['Available', 'In Use', 'In Repair', 'Retired']
@@ -13,6 +14,8 @@ export const seedAssets = [
 
 export function assetReducer(assets, action) {
   switch (action.type) {
+    case 'set':
+      return action.assets
     case 'add': {
       const id = Math.max(0, ...assets.map(a => a.id)) + 1
       return [...assets, { ...action.asset, id }]
@@ -30,14 +33,40 @@ export function searchAssets(assets, query, status = '') {
   const q = query.trim().toLowerCase()
   return assets.filter(a =>
     (!status || a.status === status) &&
-    (!q || [a.tag, a.type, a.brand, a.model, a.serial, a.assignedTo].some(v => v.toLowerCase().includes(q))))
+    (!q || [a.tag, a.type, a.brand, a.model, a.serial, a.assignedTo].some(v => String(v ?? '').toLowerCase().includes(q))))
 }
 
 const AssetContext = createContext(null)
 
-export function AssetProvider({ children, initial = seedAssets }) {
-  const [assets, dispatch] = useReducer(assetReducer, initial)
-  return <AssetContext.Provider value={{ assets, dispatch }}>{children}</AssetContext.Provider>
+export function AssetProvider({ children }) {
+  const [assets, dispatch] = useReducer(assetReducer, [])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      const list = await api.listAssets()
+      dispatch({ type: 'set', assets: list })
+      setError('')
+    } catch {
+      setError('Could not reach the server. Start the backend on port 3000 and try again.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  const addAsset = useCallback(async asset => { await api.createAsset(asset); await refresh() }, [refresh])
+  const editAsset = useCallback(async asset => { await api.updateAsset(asset.id, asset); await refresh() }, [refresh])
+  const removeAsset = useCallback(async id => { await api.deleteAsset(id); await refresh() }, [refresh])
+
+  return (
+    <AssetContext.Provider value={{ assets, loading, error, refresh, addAsset, editAsset, removeAsset }}>
+      {children}
+    </AssetContext.Provider>
+  )
 }
 
 export const useAssets = () => useContext(AssetContext)

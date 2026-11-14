@@ -6,26 +6,43 @@ const empty = { tag: '', type: TYPES[0], brand: '', model: '', serial: '', assig
 
 export default function AssetForm() {
   const { id } = useParams()
-  const { assets, dispatch } = useAssets()
+  const { assets, loading } = useAssets()
+  const existing = id ? assets.find(a => a.id === Number(id)) : null
+
+  if (id && loading && !existing) return <p>Loading…</p>
+  if (id && !existing) return <p>Asset not found.</p>
+
+  return <AssetEditor key={existing ? existing.id : 'new'} existing={existing} />
+}
+
+function AssetEditor({ existing }) {
+  const { assets, addAsset, editAsset } = useAssets()
   const navigate = useNavigate()
-  const existing = id && assets.find(a => a.id === Number(id))
   const [form, setForm] = useState(existing || empty)
   const [tagError, setTagError] = useState('')
+  const [submitError, setSubmitError] = useState('')
+  const [saving, setSaving] = useState(false)
   const tagInput = useRef(null)
-
-  if (id && !existing) return <p>Asset not found.</p>
 
   const set = e => setForm({ ...form, [e.target.name]: e.target.value })
 
-  const submit = e => {
+  const submit = async e => {
     e.preventDefault()
     const asset = { ...form, tag: form.tag.trim(), price: Number(form.price) }
     if (assets.some(a => a.tag.toLowerCase() === asset.tag.toLowerCase() && a.id !== asset.id)) {
       setTagError(`Asset tag "${asset.tag}" already exists. Use a different tag.`)
       return tagInput.current.focus()
     }
-    dispatch({ type: existing ? 'update' : 'add', asset })
-    navigate('/assets')
+    setSaving(true)
+    setSubmitError('')
+    try {
+      if (existing) await editAsset(asset)
+      else await addAsset(asset)
+      navigate('/assets')
+    } catch {
+      setSubmitError('Could not save the asset. Check the backend and try again.')
+      setSaving(false)
+    }
   }
 
   const field = (name, label, props = {}) => (
@@ -69,9 +86,10 @@ export default function AssetForm() {
           {field('price', 'Price (SAR)', { type: 'number', min: 0, step: '0.01', required: true, inputMode: 'decimal' })}
         </fieldset>
         <p className="muted hint"><span aria-hidden>*</span> Required field</p>
+        {submitError && <p className="error" role="alert">{submitError}</p>}
         <div className="form-actions">
           <button type="button" className="ghost" onClick={() => navigate('/assets')}>Cancel</button>
-          <button type="submit" className="primary">{existing ? 'Save changes' : 'Add asset'}</button>
+          <button type="submit" className="primary" disabled={saving}>{existing ? 'Save changes' : 'Add asset'}</button>
         </div>
       </form>
     </section>

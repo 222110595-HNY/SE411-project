@@ -6,8 +6,8 @@ const statusIcons = { 'Available': CheckCircle, 'In Use': User, 'In Repair': Wre
 const slug = s => s.replace(' ', '-').toLowerCase()
 
 export default function Home() {
-  const { assets } = useAssets()
-  const total = assets.reduce((sum, a) => sum + a.price, 0)
+  const { assets, loading, error } = useAssets()
+  const total = assets.reduce((sum, a) => sum + Number(a.price), 0)
   const counts = STATUSES.map(s => [s, assets.filter(a => a.status === s).length])
 
   return (
@@ -16,6 +16,9 @@ export default function Home() {
         <h1>Dashboard</h1>
         <Link className="button ghost" to="/assets">View all assets <ArrowRight size={18} aria-hidden /></Link>
       </div>
+
+      {error && <p className="error" role="alert">{error}</p>}
+      {loading && !error && <p className="muted">Loading assets…</p>}
 
       <div className="stats">
         <div className="stat"><Package size={22} aria-hidden /><span className="num">{assets.length}</span>Total assets</div>
