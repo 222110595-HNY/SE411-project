@@ -1,4 +1,4 @@
-const BASE = import.meta.env?.VITE_API_URL || '/api/v1/assets'
+const BASE = '/api/v1/assets'
 
 async function request(url, options) {
   const res = await fetch(url, options)
@@ -11,10 +11,10 @@ export async function getAssetsPage(page) {
   return res.json()
 }
 
-export async function listAssets(page = 0, size = 1000) {
-  const res = await request(`${BASE}?page=${page}&size=${size}`)
+export async function listAssets() {
+  const res = await request(`${BASE}?size=1000`)
   const data = await res.json()
-  return Array.isArray(data) ? data : (data.content ?? [])
+  return data.content
 }
 
 export async function getAsset(id) {

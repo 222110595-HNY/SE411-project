@@ -63,7 +63,7 @@ export function AssetProvider({ children }) {
   const removeAsset = useCallback(async id => { await api.deleteAsset(id); await refresh() }, [refresh])
 
   return (
-    <AssetContext.Provider value={{ assets, loading, error, refresh, addAsset, editAsset, removeAsset }}>
+    <AssetContext.Provider value={{ assets, loading, error, addAsset, editAsset, removeAsset }}>
       {children}
     </AssetContext.Provider>
   )

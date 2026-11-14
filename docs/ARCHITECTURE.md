@@ -62,7 +62,7 @@ The backend lives in `server/` and follows the same layering as the SE411 `lab14
 | Database | H2 (in-memory) via `schema.sql` + `data.sql` | Resets each run, zero setup |
 | Validation | Jakarta Bean Validation | `@NotBlank`, `@NotNull`, `@PositiveOrZero` on the model |
 | Build | Maven (wrapper `mvnw` included) | Same as lab14 |
-| Tests | JUnit 5 + Mockito, `@WebMvcTest` + MockMvc | Unit-test every layer |
+| Tests | JUnit 5 + Mockito | Unit-test every layer |
 
 ## Backend structure
 ```
@@ -82,7 +82,7 @@ server/
   src/test/java/edu/psu/se411/assetmanager/
     AssetManagerServerApplicationTests.java   context loads
     service/AssetServiceTest.java             Mockito unit tests (mocked repository)
-    controller/AssetControllerTest.java       @WebMvcTest + MockMvc (mocked service)
+    controller/AssetControllerTest.java       Mockito unit tests (mocked service)
 ```
 
 ## Backend data model (`asset` table)
@@ -118,5 +118,5 @@ Browser                 Vite dev server (:5173)              Spring Boot (:3000)
 ```
 - `src/api.js` wraps `fetch` for list/get/create/update/delete.
 - `AssetProvider` loads assets from the API on mount and re-fetches after every create/update/delete.
-- `vite.config.js` proxies `/api` to `http://localhost:3000`, so the browser calls one origin (no CORS needed in dev); set `VITE_API_URL` to point elsewhere.
+- `vite.config.js` proxies `/api` to `http://localhost:3000`, so the browser calls one origin (no CORS needed in dev).
 - The pure `assetReducer` / `searchAssets` functions stay in the front-end for client-side search, filtering and unit tests.
